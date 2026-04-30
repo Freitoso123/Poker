@@ -4,6 +4,9 @@ class Jogador:
         self._cartas = []
         self._fichas = []
         self._bot = bot
+        self._correu = False
+        self._aposta_rodada = 0
+        self._acao = None
 
     def DefinirNome(self, nome, bot, q):
         if not bot:
@@ -17,12 +20,6 @@ class Jogador:
             if fichas[i] in self.fichas:
                 aumento += fichas[i].valor
         return aumento
-
-    def Mesa():
-        return True
-
-    def Correr():
-        return True
 
     @property
     def bot(self):
@@ -55,3 +52,30 @@ class Jogador:
             self._fichas = novas_fichas.copy()
         else:
             return
+    
+    @property
+    def aposta_rodada(self):
+        return self._aposta_rodada
+
+    @aposta_rodada.setter
+    def aposta_rodada(self, valor):
+        if isinstance(valor, int):
+            self._aposta_rodada = valor
+    
+    @property
+    def correu(self):
+        return self._correu
+
+    @correu.setter
+    def correu(self, valor):
+        if isinstance(valor, bool):
+            self._correu = valor
+
+    @property
+    def acao(self):
+        return self._acao
+
+    @acao.setter
+    def acao(self, valor):
+        if isinstance(valor, str) or valor is None:
+            self._acao = valor
