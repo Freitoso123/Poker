@@ -1,25 +1,33 @@
 class Jogador:
     def __init__(self, nome, bot=False, q=0):
-        self._nome = self.DefinirNome(nome, bot, q)
+        self._nome = self.definirnome(nome, bot, q)
         self._cartas = []
         self._fichas = []
         self._bot = bot
         self._correu = False
         self._aposta_rodada = 0
         self._acao = None
+        self._all_win = False
 
-    def DefinirNome(self, nome, bot, q):
+    def definirnome(self, nome, bot, q):
         if not bot:
             return nome
         else:
             return f"Bot {q}"
 
-    def AumentarAposta(self, fichas):
-        aumento = 0
-        for i in range(len(fichas)):
-            if fichas[i] in self.fichas:
-                aumento += fichas[i].valor
-        return aumento
+    def pagar(self, valor):
+        for v in [200, 100, 50, 25]:
+            while valor >= v:
+                pago = False
+                for ficha in self.fichas:
+                    if ficha.valor == v:
+                        pago = True
+                        valor -= v
+                        self.fichas.remove(ficha)
+                        break
+                if not pago:
+                    self.all_win = True
+                    break        
 
     @property
     def bot(self):
@@ -79,3 +87,12 @@ class Jogador:
     def acao(self, valor):
         if isinstance(valor, str) or valor is None:
             self._acao = valor
+
+    @property
+    def all_win(self):
+        return self._all_win
+
+    @all_win.setter
+    def all_win(self, valor):
+        if isinstance(valor, bool):
+            self._all_win = valor 
