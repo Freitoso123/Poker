@@ -11,7 +11,6 @@ class Mesa:
         self.dealer = -1
         self.small_blind = 0
         self.big_blind = 1
-        self.criar_baralho()
     
     def jogar(self):
         while True:
@@ -21,7 +20,14 @@ class Mesa:
             if continuar.lower() != "s":
                 break
     
+    def mostrar_mesa(self):
+        print("Mesa:")
+
+        for carta in self.cartas_na_mesa:
+            print(carta.nome)
+
     def iniciar_partida(self):
+        self.criar_baralho()
         self.avancar_posicoes()
         self.embaralhar()
         self.limpar_mao()
@@ -30,15 +36,19 @@ class Mesa:
         self.rodada_apostas(pre_flop=True)
         self.resetar_apostas()
         self.flop()
+        self.mostrar_mesa()
         self.rodada_apostas()
         self.resetar_apostas()
         self.turn()
+        self.mostrar_mesa()
         self.rodada_apostas()
         self.resetar_apostas()
         self.river()
+        self.mostrar_mesa()
         self.rodada_apostas()
         self.showdown()
 
+    
     def criar_baralho(self):
         naipes = ["Paus", "Copa", "Espada", "Ouro"]
         for i in naipes:
@@ -55,6 +65,7 @@ class Mesa:
             jogador.correu = False
             jogador.aposta_rodada = 0
             jogador.acao = None
+            jogador.all_in = False
 
     def avancar_posicoes(self):
         total = len(self.jogadores)
@@ -74,13 +85,16 @@ class Mesa:
                 jogador._cartas.append(carta)
 
     def rodada_apostas(self, pre_flop=False):
-        while self.apostas_encerradas():
+        while not self.apostas_encerradas():
             total = len(self.jogadores)
             if pre_flop:
                 inicio = (self.big_blind + 1) % total
             else:
                 inicio = (self.dealer + 1) % total
             for i in range(total):
+                if self.jogadores_ativos() == 1:
+                    self.showdown()
+                    return
                 indice = (inicio + i) % total
                 jogador = self.jogadores[indice]
                 if jogador._correu:
@@ -90,8 +104,7 @@ class Mesa:
     def turno_jogador(self, jogador):
         print(f"Vez de {jogador._nome}")
         if jogador.bot:
-            acao = "a definir"
-            #algoritmo do bot
+            acao = jogador.decidir_acao(self)
         else:
             acao = input("fold / check / call / raise: ")
         jogador._acao = acao
@@ -106,10 +119,12 @@ class Mesa:
         elif acao == "raise":
             valor = int(input("Quanto aumentar? "))
             #verificar se o valor é maior que a diferença pra mesa
-            jogador.pagar(valor)
-            jogador.aposta_rodada += valor
-            self.pote += valor
-            if not jogador.all_win:
+            diferenca = self.minima_aposta - jogador.aposta_rodada
+            total = diferenca + valor
+            pago = jogador.pagar(total)
+            jogador.aposta_rodada += pago
+            self.pote += pago
+            if not jogador.all_in:
                 self.minima_aposta = jogador.aposta_rodada
             
 
@@ -118,8 +133,8 @@ class Mesa:
             if jogador._correu:
                 continue
             if jogador.aposta_rodada != self.minima_aposta:
-                return True
-        return False
+                return False
+        return True
     
     def resetar_apostas(self):
         self.minima_aposta = 0
@@ -141,8 +156,46 @@ class Mesa:
         self.cartas_na_mesa.append(carta)
 
     def showdown(self):
-        pass
-        #algoritmo do ganhador
+
+        jogadores_validos = []
+
+        for jogador in self.jogadores:
+            if not jogador.correu:
+                jogadores_validos.append(jogador)
+
+        melhor_score = -1
+        vencedores = []
+
+        for jogador in jogadores_validos:
+
+            jogador.mostrar_mao()
+
+            score = jogador.avaliar_posflop(self)
+
+            if score > melhor_score:
+                melhor_score = score
+                vencedores = [jogador]
+
+            elif score == melhor_score:
+                vencedores.append(jogador)
+
+        if len(vencedores) == 1:
+
+            vencedor = vencedores[0]
+            vencedor.receber_pote(self.pote)
+
+            print(f"{vencedor._nome} venceu {self.pote}")
+
+        else:
+
+            valor = self.pote // len(vencedores)
+            for jogador in vencedores:
+                jogador.receber_pote(valor)
+
+            print("Empate")
+
+        self.pote = 0
+            
     
     def resetar(self):
         self.baralho = []
@@ -150,6 +203,7 @@ class Mesa:
         self.pote = 0
         self.minima_aposta = 0
         self.limpar_mao()
+
     
     def cobrar_blinds(self):
         small = self.jogadores[self.small_blind]
@@ -158,3 +212,12 @@ class Mesa:
         big.aposta_rodada = big.pagar(50)
         self.pote = (small.aposta_rodada+big.aposta_rodada)
         self.minima_aposta = big.aposta_rodada
+    
+    def jogadores_ativos(self):
+        ativos = 0
+
+        for jogador in self.jogadores:
+            if not jogador.correu:
+                ativos += 1
+
+        return ativos
