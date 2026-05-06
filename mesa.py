@@ -5,20 +5,38 @@ class Mesa:
     def __init__(self):
         self.jogadores = []
         self.baralho = []
+        self.fichas_na_mesa = []
         self.pote = 0
         self.cartas_na_mesa = []
         self.minima_aposta = 0
         self.dealer = -1
         self.small_blind = 0
         self.big_blind = 1
+
+        self.etapa_atual = "pre_flop"
+        self.inidice_jogador_atual = 0
     
+    def proxima_etapa(self):
+        etapas = ["pre_flop", "flop", "turn", "river", "showdown"]
+        indice = etapas.index(self.etapa_atual)
+        
+        if self.etapas_encerradas():
+            if self.etapa_atual == "pre_flop":
+                self.flop()
+                self.etapa_atual = "flop"
+            elif self.etapa_atual == "flop":
+                self.turn()
+                self.etapa_atual = "turn"
+            elif self.etapa_atual == "turn":
+                self.river()
+                self.etapa_atual = "showdown"
+    
+            self.resetar_apostas()
+
     def jogar(self):
         while True:
             self.resetar()
             self.iniciar_partida()
-            continuar = input("Nova mão (s/n): ")
-            if continuar.lower() != "s":
-                break
     
     def mostrar_mesa(self):
         print("Mesa:")
@@ -28,9 +46,9 @@ class Mesa:
 
     def iniciar_partida(self):
         self.criar_baralho()
-        self.avancar_posicoes()
+        
         self.embaralhar()
-        self.limpar_mao()
+
         self.distribuir_cartas()
         self.cobrar_blinds()
         self.rodada_apostas(pre_flop=True)
@@ -55,6 +73,7 @@ class Mesa:
             for j in range(1, 14):
                 c = Cartas(j, i)
                 self.baralho.append(c)
+        self.avancar_posicoes()
 
     def embaralhar(self):
         random.shuffle(self.baralho)
@@ -101,23 +120,21 @@ class Mesa:
                     continue
                 self.turno_jogador(jogador)
 
-    def turno_jogador(self, jogador):
-        print(f"Vez de {jogador._nome}")
+    def turno_jogador(self, acao, jogador, valor=0):
         if jogador.bot:
             acao = jogador.decidir_acao(self)
-        else:
-            acao = input("fold / check / call / raise: ")
-        jogador._acao = acao
+
+        jogador.acao = acao
+
         if acao == "fold":
-            jogador._correu = True
+            jogador.correu = True
         elif acao == "check":
             pass
         elif acao == "call":
             diferenca = jogador.pagar(self.minima_aposta - jogador.aposta_rodada)
             jogador.aposta_rodada += diferenca
-            self.pote += diferenca
+            self.pote += diferenca 
         elif acao == "raise":
-            valor = int(input("Quanto aumentar? "))
             #verificar se o valor é maior que a diferença pra mesa
             diferenca = self.minima_aposta - jogador.aposta_rodada
             total = diferenca + valor
@@ -127,10 +144,12 @@ class Mesa:
             if not jogador.all_in:
                 self.minima_aposta = jogador.aposta_rodada
             
-
+    def interagir_interfaca(acao):
+        return acao
+    
     def apostas_encerradas(self):
         for jogador in self.jogadores:
-            if jogador._correu:
+            if jogador.correu:
                 continue
             if jogador.aposta_rodada != self.minima_aposta:
                 return False
@@ -139,8 +158,8 @@ class Mesa:
     def resetar_apostas(self):
         self.minima_aposta = 0
         for jogador in self.jogadores:
-            jogador._aposta_rodada = 0
-            jogador._acao = None
+            jogador.aposta_rodada = 0
+            jogador.acao = None
 
     def flop(self):
         for _ in range(3):
@@ -208,7 +227,7 @@ class Mesa:
     def cobrar_blinds(self):
         small = self.jogadores[self.small_blind]
         big = self.jogadores[self.big_blind]
-        small.aposta_rodada = small.pagar(25)
+        small.aposta_rodada = small.pagar(20)
         big.aposta_rodada = big.pagar(50)
         self.pote = (small.aposta_rodada+big.aposta_rodada)
         self.minima_aposta = big.aposta_rodada

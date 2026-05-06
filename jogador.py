@@ -25,7 +25,7 @@ class Jogador:
 
     def pagar(self, valor):
         pago_total = 0
-        for v in [200, 100, 50, 25]:
+        for v in [1000, 500, 100, 50, 20, 10]:
             while valor >= v:
                 pago = False
                 for ficha in self._fichas:
@@ -40,74 +40,6 @@ class Jogador:
                     break
         return pago_total         
 
-    @property
-    def bot(self):
-        return self._bot
-    @bot.setter
-    def bot(self, bot):
-        if isinstance(bot, bool):
-            self._bot = bot
-        else:
-            return
-    
-    @property
-    def cartas(self):
-        return self._cartas.copy()
-
-    @cartas.setter
-    def cartas(self, novas_cartas):
-        if isinstance(novas_cartas, list):
-            self._cartas = novas_cartas.copy()
-        else:
-            return
-
-    @property
-    def fichas(self):
-        return self._fichas.copy()
-
-    @fichas.setter
-    def fichas(self, novas_fichas):
-        if isinstance(novas_fichas, list):
-            self._fichas = novas_fichas.copy()
-        else:
-            return
-    
-    @property
-    def aposta_rodada(self):
-        return self._aposta_rodada
-
-    @aposta_rodada.setter
-    def aposta_rodada(self, valor):
-        if isinstance(valor, int):
-            self._aposta_rodada = valor
-    
-    @property
-    def correu(self):
-        return self._correu
-
-    @correu.setter
-    def correu(self, valor):
-        if isinstance(valor, bool):
-            self._correu = valor
-
-    @property
-    def acao(self):
-        return self._acao
-
-    @acao.setter
-    def acao(self, valor):
-        if isinstance(valor, str) or valor is None:
-            self._acao = valor
-
-    @property
-    def all_in(self):
-        return self._all_in
-
-    @all_in.setter
-    def all_in(self, valor):
-        if isinstance(valor, bool):
-            self._all_in = valor 
-    
     def decidir_acao(self, mesa):
         if len(mesa.cartas_na_mesa) == 0:
             score = self.avaliar_preflop()
@@ -240,7 +172,7 @@ class Jogador:
         if c1.valor == c2.valor:
             score += 40
         if c1.nipe == c2.nipe:
-            score += 10
+            score += 12
         if abs(c1.valor - c2.valor) == 1:
             score += 8
         if c1.valor >= 10 or c1.valor == 1:
@@ -264,3 +196,79 @@ class Jogador:
         for carta in self._cartas:
             print(carta.nome)
             
+    @property
+    def nome(self):
+        return self._nome
+
+    @nome.setter
+    def nome(self, valor):
+        if isinstance(valor, str) or valor is None:
+            self._nome = valor
+
+    @property
+    def bot(self):
+        return self._bot
+    @bot.setter
+    def bot(self, bot):
+        if isinstance(bot, bool):
+            self._bot = bot
+        else:
+            return
+    
+    @property
+    def cartas(self):
+        return self._cartas.copy()
+
+    @cartas.setter
+    def cartas(self, novas_cartas):
+        if isinstance(novas_cartas, list):
+            self._cartas = novas_cartas.copy()
+        else:
+            return
+
+    @property
+    def fichas(self):
+        return self._fichas
+
+    @fichas.setter
+    def fichas(self, novas_fichas):
+        if isinstance(novas_fichas, list):
+            self._fichas = novas_fichas
+        else:
+            return
+    
+    @property
+    def aposta_rodada(self):
+        return self._aposta_rodada
+
+    @aposta_rodada.setter
+    def aposta_rodada(self, valor):
+        if isinstance(valor, int):
+            self._aposta_rodada = valor
+    
+    @property
+    def correu(self):
+        return self._correu
+
+    @correu.setter
+    def correu(self, valor):
+        if isinstance(valor, bool):
+            self._correu = valor
+
+    @property
+    def acao(self):
+        return self._acao
+
+    @acao.setter
+    def acao(self, valor):
+        if isinstance(valor, str) or valor is None:
+            self._acao = valor
+
+    @property
+    def all_in(self):
+        return self._all_in
+
+    @all_in.setter
+    def all_in(self, valor):
+        if isinstance(valor, bool):
+            self._all_in = valor 
