@@ -28,12 +28,12 @@ class Jogador:
         for v in [1000, 500, 100, 50, 20, 10]:
             while valor >= v:
                 pago = False
-                for ficha in self._fichas:
+                for ficha in self.fichas:
                     if ficha.valor == v:
                         pago = True
                         valor -= v
                         pago_total += v
-                        self._fichas.remove(ficha)
+                        self.fichas.remove(ficha)
                         break
                 if not pago:
                     self.all_in = True

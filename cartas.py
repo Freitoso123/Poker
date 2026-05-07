@@ -71,3 +71,7 @@ class Cartas():
                 self._nipe = valor
             else:
                 return
+    
+    @property
+    def nome(self):
+        return self._nome

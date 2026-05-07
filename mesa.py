@@ -3,6 +3,7 @@ from jogador import Jogador
 import random
 class Mesa:
     def __init__(self):
+        self.estado = "INICIO"
         self.jogadores = []
         self.baralho = []
         self.fichas_na_mesa = []
@@ -12,61 +13,96 @@ class Mesa:
         self.dealer = -1
         self.small_blind = 0
         self.big_blind = 1
-
-        self.etapa_atual = "pre_flop"
-        self.inidice_jogador_atual = 0
+        self.jogador_atual = 0
+        self.ultimo_que_aumentou = None
     
-    def proxima_etapa(self):
-        etapas = ["pre_flop", "flop", "turn", "river", "showdown"]
-        indice = etapas.index(self.etapa_atual)
-        
-        if self.etapas_encerradas():
-            if self.etapa_atual == "pre_flop":
-                self.flop()
-                self.etapa_atual = "flop"
-            elif self.etapa_atual == "flop":
-                self.turn()
-                self.etapa_atual = "turn"
-            elif self.etapa_atual == "turn":
-                self.river()
-                self.etapa_atual = "showdown"
-    
-            self.resetar_apostas()
+    def proximo_estado(self):
+        if self.estado == "INICIO":
+            self.criar_baralho()
+            self.avancar_posicoes()
+            self.embaralhar()
+            self.limpar_mao()
+            self.distribuir_cartas()
+            self.cobrar_blinds()
+            self.estado = "PRE_FLOP"
+        elif self.estado == "PRE_FLOP":
+            self.iniciar_apostas(pre_flop=True)
+            self.estado = "TURNO"
+        elif self.estado == "TURNO":
 
-    def jogar(self):
-        while True:
+            if self.jogadores_ativos() == 1:
+                self.estado = "SHOWDOWN"
+                return
+
+            jogador = self.jogadores[self.jogador_atual]
+
+            if jogador.correu or jogador.all_in:
+                self.proximo_jogador()
+                return
+
+            if jogador.bot:
+                acao = jogador.decidir_acao(self)
+                self.executar_acao(jogador, acao)
+                self.proximo_jogador()
+            else:
+                self.estado = "AGUARDANDO_JOGADOR"
+
+        elif self.estado == "AGUARDANDO_JOGADOR":
+            #tem q sair depois (é aqui que vai o input)
+            return
+
+        elif self.estado == "FLOP":
+            self.flop()
+            self.iniciar_apostas()
+            self.estado = "TURNO"
+        elif self.estado == "TURN":
+            self.turn()
+            self.iniciar_apostas()
+            self.estado = "TURNO"
+        elif self.estado == "RIVER":
+            self.river()
+            self.iniciar_apostas()
+            self.estado = "TURNO"
+        elif self.estado == "SHOWDOWN":
+            self.showdown()
             self.resetar()
-            self.iniciar_partida()
+            self.estado = "INICIO"
+
+    def iniciar_apostas(self, pre_flop=False):
+        self.ultimo_que_aumentou = None
+        total = len(self.jogadores)
+
+        if pre_flop:
+            self.jogador_atual = (self.big_blind + 1) % total
+        else:
+            self.jogador_atual = (self.dealer + 1) % total
     
-    def mostrar_mesa(self):
-        print("Mesa:")
+    def executar_acao(self, jogador, acao, valor=0):
+        if acao == "fold":
+            jogador. correu = True
 
-        for carta in self.cartas_na_mesa:
-            print(carta.nome)
+        elif acao == "check":
+            if jogador.aposta_rodada < self.minima_aposta:
+                return  
 
-    def iniciar_partida(self):
-        self.criar_baralho()
-        
-        self.embaralhar()
+        elif acao == "call":
+            diferenca = self.minima_aposta - jogador.aposta_rodada
+            pago = jogador.pagar(diferenca)
+            jogador.aposta_rodada += pago
+            self.pote += pago
 
-        self.distribuir_cartas()
-        self.cobrar_blinds()
-        self.rodada_apostas(pre_flop=True)
-        self.resetar_apostas()
-        self.flop()
-        self.mostrar_mesa()
-        self.rodada_apostas()
-        self.resetar_apostas()
-        self.turn()
-        self.mostrar_mesa()
-        self.rodada_apostas()
-        self.resetar_apostas()
-        self.river()
-        self.mostrar_mesa()
-        self.rodada_apostas()
-        self.showdown()
+        elif acao == "raise":
+            diferenca = self.minima_aposta - jogador.aposta_rodada
+            total = diferenca + valor
 
-    
+            pago = jogador.pagar(total)
+            jogador.aposta_rodada += pago
+            self.pote += pago
+
+            if jogador.aposta_rodada > self.minima_aposta:
+                self.minima_aposta = jogador.aposta_rodada
+                self.ultimo_que_aumentou = jogador
+
     def criar_baralho(self):
         naipes = ["Paus", "Copa", "Espada", "Ouro"]
         for i in naipes:
@@ -103,24 +139,71 @@ class Mesa:
                 carta = self.baralho.pop()
                 jogador._cartas.append(carta)
 
-    def rodada_apostas(self, pre_flop=False):
-        while not self.apostas_encerradas():
-            total = len(self.jogadores)
-            if pre_flop:
-                inicio = (self.big_blind + 1) % total
+    def proximo_jogador(self):
+        total = len(self.jogadores)
+        jogador_anterior = self.jogadores[self.jogador_atual]
+
+        self.jogador_atual = (self.jogador_atual + 1) % total
+        jogador_atual = self.jogadores[self.jogador_atual]
+
+    
+        if self.apostas_encerradas():
+            if self.ultimo_que_aumentou is None:
+                terminou = True
+            elif jogador_atual == self.ultimo_que_aumentou:
+                terminou = True
             else:
-                inicio = (self.dealer + 1) % total
+                terminou = False
+        else:
+            terminou = False
+
+        if terminou:
+            self.resetar_apostas()
+
+            if len(self.cartas_na_mesa) == 0:
+                self.estado = "FLOP"
+            elif len(self.cartas_na_mesa) == 3:
+                self.estado = "TURN"
+            elif len(self.cartas_na_mesa) == 4:
+                self.estado = "RIVER"
+            else:
+                self.estado = "SHOWDOWN"
+
+    '''def rodada_apostas(self, pre_flop=False):
+
+        if self.jogadores_ativos() == 1:
+            self.estado = "SHOWDOWN"
+            return
+
+        total = len(self.jogadores)
+
+        if pre_flop:
+            inicio = (self.big_blind + 1) % total
+        else:
+            inicio = (self.dealer + 1) % total
+
+        while True:
+            mudou = False
+
             for i in range(total):
-                if self.jogadores_ativos() == 1:
-                    self.showdown()
-                    return
                 indice = (inicio + i) % total
                 jogador = self.jogadores[indice]
-                if jogador._correu:
+
+                if jogador.correu:
                     continue
+
+                aposta_antes = self.minima_aposta
+
                 self.turno_jogador(jogador)
 
-    def turno_jogador(self, acao, jogador, valor=0):
+                if self.minima_aposta > aposta_antes:
+                    mudou = True
+
+            if not mudou and self.apostas_encerradas():
+                break'''
+
+    '''def turno_jogador(self, jogador):
+        print(f"Vez de {jogador._nome}")
         if jogador.bot:
             acao = jogador.decidir_acao(self)
 
@@ -129,20 +212,27 @@ class Mesa:
         if acao == "fold":
             jogador.correu = True
         elif acao == "check":
-            pass
+            if jogador.aposta_rodada < self.minima_aposta:
+                return self.turno_jogador(jogador)
         elif acao == "call":
             diferenca = jogador.pagar(self.minima_aposta - jogador.aposta_rodada)
             jogador.aposta_rodada += diferenca
             self.pote += diferenca 
         elif acao == "raise":
-            #verificar se o valor é maior que a diferença pra mesa
+            if jogador.bot:
+                if jogador.estilo == "aggressive":
+                    valor = max(25, self.minima_aposta // 2)
+                else:
+                    valor = random.randint(self.minima_aposta, self.minima_aposta + 75)
+            else:
+                valor = int(input("Quanto aumentar? "))
             diferenca = self.minima_aposta - jogador.aposta_rodada
             total = diferenca + valor
             pago = jogador.pagar(total)
             jogador.aposta_rodada += pago
             self.pote += pago
-            if not jogador.all_in:
-                self.minima_aposta = jogador.aposta_rodada
+            if jogador.aposta_rodada > self.minima_aposta:
+                self.minima_aposta = jogador.aposta_rodada'''
             
     def interagir_interfaca(acao):
         return acao

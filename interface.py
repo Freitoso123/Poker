@@ -158,7 +158,7 @@ class Tela_jogo(tk.Frame):
         self.x_jogador = 0
         self.y_jogador = 0
 
-        self.jogadores = {}
+        self.jogadores = []
         self.fichas_iniciais = []
         config = [
             (1000, 1),
@@ -173,13 +173,15 @@ class Tela_jogo(tk.Frame):
                 self.fichas_iniciais.append(Fichas(valor))
 
         self.player = Jogador(self.app.nome.get())
-        self.jogadores[self.player.nome] = self.player
+        self.jogadores.append(self.player)
 
         for b in range(self.app.qtd_jogadores-1):
             bot = Jogador("", True, b+1)
-            self.jogadores[bot.nome] = bot
+            self.jogadores.append(bot)
 
-        for jogador in self.jogadores.values():
+        self.mesa.jogadores = self.jogadores
+
+        for jogador in self.jogadores:
             jogador.fichas = [Fichas(f.valor) for f in self.fichas_iniciais]
 
         imagens = [
@@ -193,12 +195,53 @@ class Tela_jogo(tk.Frame):
 
         self.imagens_fichas = imagens
 
+        self.jogador_atual = self.jogadores[self.mesa.jogador_atual]
 
         self.desenhar_mesa()
-        self.desenhar_jogadores( list(self.jogadores.values()))
+        self.desenhar_jogadores(self.jogadores)
 
         self.atualizar_fichas_jogador()
         self.atualizar_fichas_mesa()
+        self.atualizar_cartas_jogador()
+        self.atualizar_cartas_mesa()
+
+        self.mesa.proximo_estado()
+
+    def desenhar_mesa(self):
+        largura = 60
+        altura = 90
+        espaco = 15
+
+        cx, cy = 600, 400
+
+        total_largura = 5 * largura + 4 * espaco
+        inicio_x = cx - total_largura / 2
+
+        for i in range(5):
+            x1 = inicio_x + i * (largura + espaco)
+            y1 = cy - altura / 2
+
+            nome_carta_especifica_mesa = f"carta_{i}"
+            nome_fundo_especifica_mesa = f"fundo_mesa_{i}"
+            self.canvas.create_rectangle(
+                x1, y1,
+                x1 + largura, y1 + altura,
+                outline="yellow", fill="",
+                tags=(nome_fundo_especifica_mesa)
+            )
+            self.canvas.create_text(
+                x1 + largura/2, cy,
+                text="",
+                font=("Arial", 12, "bold"),
+                fill="black",
+                tags=(nome_carta_especifica_mesa)
+            )
+        self.canvas.create_text(
+                cx, cy+100,
+                text=f"{self.mesa.pote}",
+                font=("Arial", 12, "bold"),
+                tags=("valor_total_mesa")
+            )
 
     def desenhar_jogadores(self, jogadores):
         self.canvas.delete("jogadores")
@@ -206,6 +249,7 @@ class Tela_jogo(tk.Frame):
 
         cx, cy = 600, 400 
         raio = 300
+        raio_texto_aposta = 200
 
         largura = 60
         altura = 90
@@ -224,33 +268,57 @@ class Tela_jogo(tk.Frame):
             for j in range(2):
                 offset = (j - 0.5) * (largura + 10)
 
+                nome_carta_especifica_jogador = f"carta_{j}_jogador_{i}"
+                nome_fundo_especifica_jogador = f"fundo_{j}_jogador_{i}"
+                
                 self.canvas.create_rectangle(
                     x1 + offset, y1,
                     x2 + offset, y2,
-                    outline="white",
-                    tags="jogadores"
+                    outline="white", fill="",
+                    tags=(nome_fundo_especifica_jogador)
                 )
+                self.canvas.create_text(
+                    x + offset, y,
+                    text="",
+                    font=("Arial", 12, "bold"),
+                    fill="black",
+                    tags=(nome_carta_especifica_jogador)
+                )
+
             self.canvas.create_text(
-            x,
-            y + altura/2 + 15,
-            text= jogador.nome,
-            fill="white",
-            font=("Arial", 12, "bold"),
-            tags="jogadores"
+                x,
+                y + altura/2 + 15,
+                text= jogador.nome,
+                fill="white",
+                font=("Arial", 12, "bold"),
+                tags="jogadores"
+            )
+
+            ax = cx + raio_texto_aposta * math.cos(angulo)
+            ay = cy + raio_texto_aposta * math.sin(angulo)
+
+            nome_aposta_especifica_jogador = f"aposta_do_jogador_{i}"
+            self.canvas.create_text(
+                ax,
+                ay,
+                text= str(jogador.aposta_rodada),
+                fill="white",
+                font=("Arial", 12, "bold"),
+                tags=nome_aposta_especifica_jogador
             )
 
             if not jogador.bot:
                 Bfold = tk.Button(self,
                                   text="Fold",
-                                  command=lambda : self.executar_acao("fold"),
+                                  command=lambda : self.mandar_acao("fold"),
                                   bg="red")
                 Bcheck = tk.Button(self,
                                   text="Check",
-                                  command=lambda : self.executar_acao("check",),
+                                  command=lambda : self.mandar_acao("check",),
                                   bg="yellow")
                 Bcall = tk.Button(self,
                                   text="Call",
-                                  command=lambda : self.executar_acao("call"),
+                                  command=lambda : self.mandar_acao("call"),
                                   bg="green")
                 Braise = tk.Button(self,
                                   text="Raise",
@@ -265,30 +333,8 @@ class Tela_jogo(tk.Frame):
                 self.x_jogador = x
                 self.y_jogador = y
     
-    def desenhar_mesa(self):
-        largura = 60
-        altura = 90
-        espaco = 15
-
-        cx, cy = 600, 400
-
-        total_largura = 5 * largura + 4 * espaco
-        inicio_x = cx - total_largura / 2
-
-        for i in range(5):
-            x1 = inicio_x + i * (largura + espaco)
-            y1 = cy - altura / 2
-
-            self.canvas.create_rectangle(
-                x1, y1,
-                x1 + largura, y1 + altura,
-                outline="yellow"
-            )
-
     def mostrar_fichas(self):
-        self.canvas.delete("fichas_clicar")
-        self.canvas.delete("botao_ok")
-        self.canvas.delete("botao_voltar")
+        self.deletar_botoes_aposta()
 
         for i, (valor, img) in enumerate(self.imagens_fichas):
             offset_x = i*45
@@ -329,6 +375,7 @@ class Tela_jogo(tk.Frame):
             window=btn_voltar,
             tags="botao_voltar" 
         )
+    
     def selecionar_ficha(self, valor):
         ficha_encontrada = None
         for f in self.player.fichas:
@@ -338,12 +385,63 @@ class Tela_jogo(tk.Frame):
 
         if ficha_encontrada:
             self.player.fichas.remove(ficha_encontrada)
-            print(len(self.player.fichas))
             self.mesa.fichas_na_mesa.append(ficha_encontrada)
             self.player.aposta_rodada += valor
 
             self.atualizar_fichas_jogador()
             self.atualizar_fichas_mesa()
+
+    def mandar_acao(self, acao, valor=0):
+        self.mesa.executar_acao(acao, self.player, valor)
+        self.atualizar_fichas_jogador()
+        self.atualizar_fichas_mesa()    
+        self.atualizar_cartas_jogador()
+        self.atualizar_cartas_mesa()
+
+        self.mesa.proximo_estado()
+
+    def mandar_valor_para_mesa(self, valor):
+        if valor <=0:
+            return
+        self.mesa.pote += valor
+        self.mandar_acao("raise", valor)
+
+        self.canvas.itemconfig("aposta_do_jogador_0",text=f"{self.jogador_atual.aposta_rodada}")
+
+        self.deletar_botoes_aposta()
+        self.atualizar_fichas_jogador()
+        self.atualizar_fichas_mesa()
+        self.atualizar_cartas_jogador()
+        self.atualizar_cartas_mesa()
+        
+        self.mesa.proximo_estado()
+
+    def deletar_botoes_aposta(self):
+        
+        tags_para_limpar = ["fichas_clicar", "botao_ok", "botao_voltar"]
+        
+        for tag in tags_para_limpar:
+            
+            itens = self.canvas.find_withtag(tag)
+            for item in itens:
+                try:
+                    widget_path = self.canvas.itemcget(item, "window")
+                    if widget_path:
+                        widget = self.nametowidget(widget_path)
+                        widget.destroy()
+                except:
+                    pass 
+            
+            self.canvas.delete(tag)
+
+    def voltar_ficha_para_o_jogador(self):
+        if self.mesa.fichas_na_mesa:
+            ultima_ficha = self.mesa.fichas_na_mesa.pop()
+            self.player.fichas.append(ultima_ficha)
+            self.player.aposta_rodada -= ultima_ficha.valor
+
+            self.atualizar_fichas_jogador()
+            self.atualizar_fichas_mesa()    
 
     def atualizar_fichas_jogador(self):
         self.canvas.delete("fichas_jogador")
@@ -375,6 +473,7 @@ class Tela_jogo(tk.Frame):
             )
 
     def atualizar_fichas_mesa(self):
+    
         self.canvas.delete("fichas_mesa")
         
         cx, cy = 600, 400
@@ -410,28 +509,24 @@ class Tela_jogo(tk.Frame):
                 image=ficha.img, 
                 tags="fichas_mesa"
             )
-
-    def executar_acao(self, acao, valor=0):
-        self.mesa.turno_jogador(acao, self.player, valor)
-        self.atualizar_fichas_jogador()
-        self.atualizar_fichas_mesa()    
     
-    def mandar_valor_para_mesa(self, valor):
-        if valor <=0:
-            return
-        self.mesa.pote += valor
-        self.executar_acao("raise", valor)
-        self.player.aposta_rodada = 0
+    def atualizar_cartas_mesa(self):
+        for i in range(len(self.mesa.cartas_na_mesa)):
+            
+            self.canvas.itemconfig(f"fundo_mesa_{i}", fill="")
+            self.canvas.itemconfig(f"carta_{i}", text="")
 
-        self.canvas.delete("fichas_clicar")
-        self.canvas.delete("botao_ok")
-        self.canvas.delete("botao_voltar")
+            carta = self.mesa.cartas_na_mesa[i]
+            self.canvas.itemconfig(f"fundo_mesa_{i}", fill="white")
+            self.canvas.itemconfig(f"carta_{i}", text=carta.nome)
 
-    def voltar_ficha_para_o_jogador(self):
-        if self.mesa.fichas_na_mesa:
-            ultima_ficha = self.mesa.fichas_na_mesa.pop()
-            self.player.fichas.append(ultima_ficha)
-            self.player.aposta_rodada -= ultima_ficha.valor
+    def atualizar_cartas_jogador(self):
+        for i, jogador in enumerate(self.jogadores):
+            for j in range(len(jogador.cartas)):
+                
+                self.canvas.itemconfig(f"carta_{j}_jogador_{i}", text="")
+                self.canvas.itemconfig(f"fundo_{j}_jogador_{i}", fill="")
 
-            self.atualizar_fichas_jogador()
-            self.atualizar_fichas_mesa()    
+                carta = jogador.cartas[j]
+                self.canvas.itemconfig(f"carta_{j}_jogador_{i}", text=f"{carta.nome}")
+                self.canvas.itemconfig(f"fundo_{j}_jogador_{i}", fill="white")
